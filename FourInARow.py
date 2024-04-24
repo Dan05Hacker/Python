@@ -5,12 +5,15 @@ import numpy as np
 # Constants
 ROW_COUNT = 6
 COLUMN_COUNT = 7
-SQUARESIZE = 100
+SQUARESIZE = 110
 RADIUS = int(SQUARESIZE / 2 - 5)
 RED = (255, 0, 0)
 YELLOW = (255, 255, 0)
 BLUE = (0, 0, 255)
 BLACK = (0, 0, 0)
+PVP = 1
+PVAI = 2
+AIVAI = 3
 
 # Initialize pygame
 pygame.init()
@@ -53,7 +56,6 @@ def draw_board(board):
         for r in range(ROW_COUNT):
             pygame.draw.circle(screen, RED if board[r][c] == 1 else YELLOW if board[r][c] == 2 else BLACK, (int(c * SQUARESIZE + SQUARESIZE / 2), height - int(r * SQUARESIZE + SQUARESIZE / 2)), RADIUS)
 
-
 # Function to check for winning combinations
 def winning_move(board, piece):
     # Check horizontal locations
@@ -83,62 +85,94 @@ def restart_game():
     game_over = False
     turn = 0
 
+def menu_screen():
+    screen.fill(BLACK)
+    pvp_text = "1. Player vs Player"
+    pvai_text = "2. Player vs AI"
+    aivai_text = "3. AI vs AI"
+    font = pygame.font.SysFont(None, 40)
+    text_surface_pvp = font.render(pvp_text, True, BLUE)
+    text_surface_pvai = font.render(pvai_text, True, BLUE)
+    text_surface_aivai = font.render(aivai_text, True, BLUE)
+    screen.blit(text_surface_pvp, (width // 2 - text_surface_pvp.get_width() // 2, height // 2 - 60))
+    screen.blit(text_surface_pvai, (width // 2 - text_surface_pvai.get_width() // 2, height // 2))
+    screen.blit(text_surface_aivai, (width // 2 - text_surface_aivai.get_width() // 2, height // 2 + 60))
+    pygame.display.update()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    return PVP
+                elif event.key == pygame.K_2:
+                    return PVAI
+                elif event.key == pygame.K_3:
+                    return AIVAI
+
 # Initialize the game board
 restart_game()
-myfont = pygame.font.SysFont("monospace", 70)
+myfont = pygame.font.SysFont("monospace", 45)
+player_scores = {1: 0, 2: 0}
 
 # Main game loop
-while not game_over:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            sys.exit()
+while True:
+    # Display menu screen and get selected mode
+    mode = menu_screen()
 
-        if event.type == pygame.MOUSEMOTION:
-            pygame.draw.rect(screen, BLACK, (0,0, width, SQUARESIZE))
-            posx = event.pos[0]
-            pygame.draw.circle(screen, RED if turn == 0 else YELLOW, (posx, int(SQUARESIZE/2)), RADIUS)
+    # Main game loop for the selected mode
+    while not game_over:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            pygame.draw.rect(screen, BLACK, (0, 0, width, SQUARESIZE))
-            posx = event.pos[0]
-            col = int(posx // SQUARESIZE)
+            if event.type == pygame.MOUSEMOTION:
+                pygame.draw.rect(screen, BLACK, (0,0, width, SQUARESIZE))
+                posx = event.pos[0]
+                pygame.draw.circle(screen, RED if turn == 0 else YELLOW, (posx, int(SQUARESIZE/2)), RADIUS)
 
-            if is_valid_location(board, col):
-               # Drop a piece for the current player
-                row = get_next_open_row(board, col)
-                current_player = 1 if turn == 0 else 2
-                drop_piece(board, row, col, current_player)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                pygame.draw.rect(screen, BLACK, (0, 0, width, SQUARESIZE))
+                posx = event.pos[0]
+                col = int(posx // SQUARESIZE)
 
-                # Check if the current player has won
-                if winning_move(board, current_player) or np.all(board != 0):
-                    draw_board(board)
-                    screen.blit(myfont.render(f"Player {current_player} wins!!" if winning_move(board, current_player) else "It's a tie!", 1, RED if current_player == 1 else YELLOW if winning_move(board, current_player) else BLUE), (40, 10))
-                    game_over = True
-                # Print the updated board and toggle the turn if the game is not over
-                print_board(board)
-                if not game_over:
-                    turn = (turn + 1) % 2
-            else:
-                # Invalid move, don't change the turn
-                print("Invalid move!")
-            pygame.display.update()
+                if is_valid_location(board, col):
+                   # Drop a piece for the current player
+                    row = get_next_open_row(board, col)
+                    current_player = 1 if turn == 0 else 2
+                    drop_piece(board, row, col, current_player)
 
-            if game_over:
-                waiting = True
-                while waiting:
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_q):
-                            sys.exit()
-                        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                            # Restart the game
-                            restart_game()
-                            waiting = False      
+                    # Check if the current player has won
+                    if winning_move(board, current_player) or np.all(board != 0):
+                        draw_board(board)
+                        player_scores[current_player] += 1
+                        screen.blit(myfont.render(f"Player {current_player} wins! P1: {player_scores[1]} P2: {player_scores[2]}" if winning_move(board, current_player) else "It's a tie!", 1, RED if current_player == 1 else YELLOW if winning_move(board, current_player) else BLUE), (40, 10))
+                        game_over = True
+                    # Print the updated board and toggle the turn if the game is not over
+                    print_board(board)
+                    if not game_over:
+                        turn = (turn + 1) % 2
+                else:
+                    # Invalid move, don't change the turn
+                    print("Invalid move!")
+                pygame.display.update()
 
-    draw_board(board)
-    screen.blit(myfont.render(f"Player {turn + 1}'s turn", 1, RED if turn == 0 else YELLOW), (40, 10))
-    pygame.display.update()
+                if game_over:
+                    waiting = True
+                    while waiting:
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_q):
+                                sys.exit()
+                            elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                                # Restart the game
+                                restart_game()
+                                waiting = False      
+
+        draw_board(board)
+        screen.blit(myfont.render(f"Player {turn + 1}'s turn", 1, RED if turn == 0 else YELLOW), (40, 10))
+        pygame.display.update()
 
     #TODO: Add Different modes of play (Player vs Player, Player vs AI, AI vs AI)
     #TODO: Add a difficulty setting for the AI
-    #TODO: Add a score counter for each player
     #TODO: Add logic for AI player moves
